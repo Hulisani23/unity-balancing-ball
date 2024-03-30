@@ -1,0 +1,101 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using Unity.MLAgents;
+using Unity.MLAgents.Sensors;
+using Unity.MLAgents.Actuators;
+
+public class BallBallancingAgent : Agent
+{
+    public GameObject Ball;
+    public GameObject Ball2;
+    Rigidbody ballRigidbody;
+    Rigidbody ballRigidbody2;
+    EnvironmentParameters defaultParameters;
+    public override void Initialize()
+    {
+        ballRigidbody = Ball.GetComponent<Rigidbody>();
+        ballRigidbody2 = Ball2.GetComponent<Rigidbody>();
+        defaultParameters = Academy.Instance.EnvironmentParameters;
+        ResetScene();
+    }
+
+    public override void OnEpisodeBegin()
+    {
+        gameObject.transform.rotation = new Quaternion(0f, 0f, 0f, 0f);
+        gameObject.transform.Rotate(new Vector3(1, 0, 0), Random.Range(-10f, 10f));
+        gameObject.transform.Rotate(new Vector3(0, 0, 1), Random.Range(-10f, 10f));
+        ballRigidbody.velocity = new Vector3(0f, 0f, 0f);
+        Ball.transform.position = new Vector3(Random.Range(-1.5f, 1.5f), 4f, Random.Range(-1.5f, 1)) + gameObject.transform.position;
+
+        ballRigidbody2.velocity = new Vector3(0f, 0f, 0f);
+        Ball2.transform.position = new Vector3(Random.Range(-1.5f, 1.5f), 4f, Random.Range(-1.5f, 1)) + gameObject.transform.position;
+
+        ResetScene();
+    }
+
+    public override void CollectObservations(VectorSensor sensor)
+    {
+        sensor.AddObservation(ballRigidbody.velocity);
+        sensor.AddObservation(Ball.transform.position);
+        sensor.AddObservation(transform.rotation.z);
+        sensor.AddObservation(transform.rotation.x);
+
+        sensor.AddObservation(ballRigidbody2.velocity);
+        sensor.AddObservation(Ball2.transform.position);
+    }
+
+    public override void OnActionReceived(ActionBuffers actions)
+    {
+        var zangle = 2f * Mathf.Clamp(actions.ContinuousActions[0], -1f, 1f);
+        var xangle = 2f * Mathf.Clamp(-actions.ContinuousActions[1], -1f, 1f);
+
+        if ((gameObject.transform.rotation.z < 0.25f && zangle > 0f) || 
+            (gameObject.transform.rotation.z > -0.25f && xangle < 0f))
+        {
+            gameObject.transform.Rotate(new Vector3(0, 0, 1), zangle);
+
+        }
+
+        if ((gameObject.transform.rotation.x < 0.25f && xangle > 0f) ||
+            (gameObject.transform.rotation.x > -0.25f && xangle < 0f))
+        {
+            gameObject.transform.Rotate(new Vector3(1, 0, 0), xangle);
+        }
+
+        if((Ball.transform.position.y - gameObject.transform.position.y) < -2f ||
+            Mathf.Abs(Ball.transform.position.x - gameObject.transform.position.x) > 3f ||
+            Mathf.Abs(Ball.transform.position.z - gameObject.transform.position.z) > 3f || 
+            ((Ball2.transform.position.y - gameObject.transform.position.y) < -2f ||
+            Mathf.Abs(Ball2.transform.position.x - gameObject.transform.position.x) > 3f ||
+            Mathf.Abs(Ball2.transform.position.z - gameObject.transform.position.z) > 3f))
+        { 
+            SetReward(-1f);
+            EndEpisode();
+        }
+        else
+        {
+            SetReward(0.1f);
+        }
+
+      
+    }
+    public override void Heuristic(in ActionBuffers actionsOut)
+    {
+        ActionSegment<float> continouosActions = actionsOut.ContinuousActions;
+        continouosActions[0] = Input.GetAxisRaw("Horizontal");
+        continouosActions[1] = -Input.GetAxisRaw("Vertical");
+    }
+    void ResetScene()
+    {
+        ballRigidbody.mass = defaultParameters.GetWithDefault("mass", 1.0f);
+        var scale = defaultParameters.GetWithDefault("scale", 0.5f);
+        Ball.transform.localScale = new Vector3(scale, scale, scale);
+
+        ballRigidbody2.mass = defaultParameters.GetWithDefault("mass", 1.0f);
+        var scale2 = defaultParameters.GetWithDefault("scale", 0.5f);
+        Ball2.transform.localScale = new Vector3(scale2, scale2, scale2);
+    }
+
+    
+}
